@@ -369,6 +369,9 @@ static bool subproc_New(run_t* run) {
 
     LOG_D("Forking new process for thread: %" PRId32, run->fuzzNo);
 
+    // Init PIDs set
+    run->PIDs.pids = (pid_t*)util_Malloc(_HF_PIDS_MAX * sizeof(pid_t));
+
     run->pid = arch_fork(run);
     if (run->pid == -1) {
         PLOG_E("Couldn't fork");
@@ -529,14 +532,19 @@ void subproc_checkTimeLimit(run_t* run) {
 
     if ((diffUSecs > (run->global->timing.tmOut * 1000000)) && !run->tmOutSignaled) {
         run->tmOutSignaled = true;
-        LOG_W("pid=%d took too much time (limit %ld s). Killing it with %s", (int)run->pid,
+
+        for (int i = 0; i < run->PIDs.len; i++) {
+            LOG_W("pid=%d took too much time (limit %ld s). Killing it with %s", (int)run->PIDs.pids[i],
             (long)run->global->timing.tmOut,
             run->global->timing.tmoutVTALRM ? "SIGVTALRM" : "SIGKILL");
-        if (run->global->timing.tmoutVTALRM) {
-            kill(run->pid, SIGVTALRM);
-        } else {
-            kill(run->pid, SIGKILL);
+            if (run->global->timing.tmoutVTALRM) {
+                kill(run->PIDs.pids[i], SIGVTALRM);
+            } else {
+                kill(run->PIDs.pids[i], SIGKILL);
+            }
+            run->PIDs.pids[i] = 0;
         }
+        run->PIDs.len = 0;
         ATOMIC_POST_INC(run->global->cnts.timeoutedCnt);
     }
 }

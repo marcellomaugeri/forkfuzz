@@ -231,7 +231,7 @@ static bool arch_checkWait(run_t* run) {
 
         arch_traceAnalyze(run, status, pid);
 
-        if (pid == run->pid && (WIFEXITED(status) || WIFSIGNALED(status))) {
+        if (pid == run->pid && (WIFEXITED(status) || WIFSIGNALED(status)) && run->PIDs.len <= 0) {
             if (run->global->exe.persistent) {
                 if (!fuzz_isTerminating()) {
                     LOG_W("Persistent mode: pid=%d exited with status: %s", (int)run->pid,

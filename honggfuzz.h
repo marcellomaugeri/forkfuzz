@@ -111,6 +111,14 @@ static const uint8_t HFReadyTag = 'R';
 /* printf() nonmonetary separator. According to MacOSX's man it's supported there as well */
 #define _HF_NONMON_SEP "'"
 
+/* Maximum number of supported pids per run */
+#define _HF_PIDS_MAX 10
+
+typedef struct {
+    pid_t* pids;
+    int8_t len;
+} pidset_t;
+
 typedef enum {
     _HF_DYNFILE_NONE         = 0x0,
     _HF_DYNFILE_INSTR_COUNT  = 0x1,
@@ -372,7 +380,7 @@ typedef struct {
     unsigned     triesLeft;
     dynfile_t*   current;
     hwcnt_t hwCnts;
-
+    pidset_t     PIDs;
     struct {
         /* For Linux code */
         uint8_t* perfMmapBuf;

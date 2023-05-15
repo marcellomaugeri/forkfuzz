@@ -1,0 +1,6 @@
+GET / HTTP/1.1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_5_2) AppleWebKit/531.0.2 (KHTML, like Gecko) Chrome/36.0.863.0 Safari/531.0.2
+Accept-Language: en
+Accept: */*
+Accept-Encoding: gzip, deflate, br
+Connection: keep-alive

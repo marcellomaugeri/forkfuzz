@@ -872,7 +872,7 @@ static void arch_traceSaveData(run_t* run, pid_t pid) {
 }
 
 #define __WEVENT(status) ((status & 0xFF0000) >> 16)
-static void arch_traceEvent(int status, pid_t pid) {
+static void arch_traceEvent(int status, pid_t pid, run_t* run) {
     LOG_D("PID: %d, Ptrace event: %d", pid, __WEVENT(status));
     switch (__WEVENT(status)) {
         case PTRACE_EVENT_EXIT: {
@@ -892,6 +892,33 @@ static void arch_traceEvent(int status, pid_t pid) {
                 LOG_D("PID: %d exited with unknown status: %lu (%s)", pid, event_msg,
                     subproc_StatusToStr(event_msg));
             }
+            //Remove pid from pid set and shift all other pids
+            for (int i = 0; i < run->PIDs.len; i++) {
+                if (run->PIDs.pids[i] == pid) {
+                    run->PIDs.pids[i] = 0;
+                    for (int j = i; j < run->PIDs.len - 1; j++) {
+                        run->PIDs.pids[j] = run->PIDs.pids[j + 1];
+                    }
+                    run->PIDs.len--;
+                    break;
+                }
+            }
+        } break;
+        case PTRACE_EVENT_FORK: {
+            //get pid from event message and add to set
+            unsigned long event_msg;
+            if (ptrace(PTRACE_GETEVENTMSG, pid, NULL, &event_msg) == -1) {
+                PLOG_E("ptrace(PTRACE_GETEVENTMSG,%d) failed", pid);
+                return;
+            }
+            LOG_D("PID: %d forked with pid: %lu", pid, event_msg);
+            //Check if pid set is full
+            if (run->PIDs.len == _HF_PIDS_MAX) {
+                LOG_W("PID set is full, cannot add pid: %lu", event_msg);
+                break;
+            }
+            run->PIDs.pids[run->PIDs.len] = event_msg;
+            run->PIDs.len++;
         } break;
         default:
             break;
@@ -905,7 +932,7 @@ void arch_traceAnalyze(run_t* run, int status, pid_t pid) {
      * It's a ptrace event, deal with it elsewhere
      */
     if (WIFSTOPPED(status) && __WEVENT(status)) {
-        return arch_traceEvent(status, pid);
+        return arch_traceEvent(status, pid, run);
     }
 
     if (WIFSTOPPED(status)) {
@@ -1037,11 +1064,7 @@ bool arch_traceAttach(run_t* run) {
 #define PTRACE_O_EXITKILL (1 << 20)
 #endif /* !defined(PTRACE_O_EXITKILL) */
     long seize_options =
-        PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL;
-    /* The event is only used with sanitizers */
-    if (run->global->sanitizer.enable) {
-        seize_options |= PTRACE_O_TRACEEXIT;
-    }
+        PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL | PTRACE_O_TRACEEXIT;
 
     if (!arch_traceWaitForPidStop(run->pid)) {
         return false;
@@ -1052,7 +1075,12 @@ bool arch_traceAttach(run_t* run) {
         return false;
     }
 
+    //Add pid in PIDs
+    run->PIDs.pids[0] = run->pid;
+    run->PIDs.len = 1;
+
     LOG_D("Attached to PID: %d", (int)run->pid);
+    
 
     int tasks[MAX_THREAD_IN_TASK + 1] = {0};
     if (!arch_listThreads(tasks, MAX_THREAD_IN_TASK, run->pid)) {

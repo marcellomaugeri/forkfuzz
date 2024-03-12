@@ -1,5 +1,5 @@
 # Forkfuzz
-Official repository for the paper <i>Forkfuzz: Leveraging the Fork-Awareness in Coverage-Guided Fuzzing</i>.
+Official repository for the paper <a href="https://doi.org/10.1007/978-3-031-54129-2_17"><i>Forkfuzz: Leveraging the Fork-Awareness in Coverage-Guided Fuzzing</i></a>.
 Please cite the paper using the provided bib entry if you reference or utilise this work.
 ```
 @InProceedings{10.1007/978-3-031-54129-2_17,
